@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Analyzer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 3rem 2.5rem;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #58a6ff, #bf91f3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #8b949e;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .badge {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.8rem;
+      color: #58a6ff;
+    }
+
+    .launch-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: #fff;
+      text-decoration: none;
+      padding: 0.85rem 2.5rem;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+      margin-bottom: 1rem;
+    }
+
+    .launch-btn:hover { opacity: 0.85; }
+
+    .github-link {
+      display: block;
+      color: #8b949e;
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-top: 0.75rem;
+      transition: color 0.2s;
+    }
+
+    .github-link:hover { color: #e6edf3; }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin: 2rem 0;
+      text-align: left;
+    }
+
+    .feature {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #c9d1d9;
+    }
+
+    .feature span { display: block; color: #8b949e; font-size: 0.75rem; margin-top: 0.2rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔍</div>
+    <h1>Web Analyzer</h1>
+    <p class="subtitle">Analyze any website — performance, SEO, accessibility, security, and broken links in one click.</p>
+
+    <div class="badges">
+      <span class="badge">Performance</span>
+      <span class="badge">SEO</span>
+      <span class="badge">Accessibility</span>
+      <span class="badge">Security</span>
+      <span class="badge">Links</span>
+    </div>
+
+    <div class="features">
+      <div class="feature">📊 Live scores <span>Lighthouse + PageSpeed</span></div>
+      <div class="feature">📁 Export reports <span>PDF, Excel, CSV, JSON</span></div>
+      <div class="feature">📈 History & trends <span>Track score over time</span></div>
+      <div class="feature">⚖️ Compare sites <span>Side-by-side radar chart</span></div>
+    </div>
+
+    <a class="launch-btn" href="https://web-production-72153.up.railway.app" target="_blank">Launch App →</a>
+    <a class="github-link" href="https://github.com/zid12256/web-analyzer" target="_blank">View source on GitHub</a>
+  </div>
+</body>
+</html>
