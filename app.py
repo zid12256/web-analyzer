@@ -219,4 +219,4 @@ if __name__ == "__main__":
     db.init_db()
     port = int(os.environ.get("PORT", 5000))
     print(f"\n  Web Analyzer UI running at: http://127.0.0.1:{port}\n")
-    app.run(host="127.0.0.1", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)
