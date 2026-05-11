@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Résultats — {{ url }}{% endblock %}
+{% block content %}
+
+{% macro score_class(s) -%}
+  {%- if s is none %}score-na
+  {%- elif s >= 90 %}score-good
+  {%- elif s >= 50 %}score-mid
+  {%- else %}score-bad{% endif -%}
+{%- endmacro %}
+
+{% macro sev_icon(sev) -%}
+  {%- if sev == 'critical' %}✗
+  {%- elif sev == 'warning' %}!
+  {%- elif sev == 'ok' %}✓
+  {%- else %}i{% endif -%}
+{%- endmacro %}
+
+<div class="card" style="background: linear-gradient(135deg, #1e293b, #1e1b4b); border: 1px solid #4c1d95;">
+  <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="margin-bottom: 4px;">{{ url.replace('https://', '').replace('http://', '') }}</h1>
+      <p class="muted small">Analysé le {{ timestamp[:16].replace('T', ' à ') }} UTC</p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="{{ url_for('export', analysis_id=analysis_id, fmt='pdf') }}" class="btn btn-secondary btn-sm">PDF</a>
+      <a href="{{ url_for('export', analysis_id=analysis_id, fmt='xlsx') }}" class="btn btn-secondary btn-sm">Excel</a>
+      <a href="{{ url_for('export', analysis_id=analysis_id, fmt='csv') }}" class="btn btn-secondary btn-sm">CSV</a>
+      <a href="{{ url_for('export', analysis_id=analysis_id, fmt='json') }}" class="btn btn-secondary btn-sm">JSON</a>
+    </div>
+  </div>
+</div>
+
+<!-- Score Overview -->
+<div class="grid grid-2">
+  <div class="card">
+    <h3 class="card-title">Score global</h3>
+    <div style="display: flex; align-items: center; gap: 24px;">
+      <div style="position: relative; width: 160px; height: 160px; flex-shrink: 0;">
+        <canvas id="overallGauge" width="160" height="160"></canvas>
+        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+          <div style="font-size: 36px; font-weight: 800;">{{ overall if overall is not none else '?' }}</div>
+          <div class="muted small">/ 100</div>
+        </div>
+      </div>
+      <div style="flex: 1;">
+        {% set scores = [
+          ('Performance', results.get('performance', {}).get('score')),
+          ('SEO', results.get('seo', {}).get('score')),
+          ('Accessibilité', results.get('accessibility', {}).get('score')),
+          ('Sécurité', results.get('security', {}).get('score'))
+        ] %}
+        {% for label, s in scores %}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+          <div style="flex: 1; font-weight: 500;">{{ label }}</div>
+          <div style="flex: 2; height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: {{ s if s is not none else 0 }}%; background: {% if s is none %}#475569{% elif s >= 90 %}#10b981{% elif s >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+          </div>
+          <span class="score-pill {{ score_class(s) }}">{{ s if s is not none else '—' }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">Vue Radar</h3>
+    <div style="height: 280px;">
+      <canvas id="radarChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Issues breakdown -->
+<div class="grid grid-3">
+  {% set total_critical = 0 %}{% set total_warning = 0 %}{% set total_ok = 0 %}
+  {% for sec, data in results.items() %}
+    {% for issue in data.get('issues', []) %}
+      {% if issue.severity == 'critical' %}{% set total_critical = total_critical + 1 %}{% endif %}
+      {% if issue.severity == 'warning' %}{% set total_warning = total_warning + 1 %}{% endif %}
+      {% if issue.severity == 'ok' %}{% set total_ok = total_ok + 1 %}{% endif %}
+    {% endfor %}
+  {% endfor %}
+  <div class="card" style="text-align: center; border-left: 4px solid var(--critical);">
+    <div style="font-size: 32px; font-weight: 800;" class="severity-critical">{{ total_critical }}</div>
+    <div class="muted">Critiques</div>
+  </div>
+  <div class="card" style="text-align: center; border-left: 4px solid var(--warning);">
+    <div style="font-size: 32px; font-weight: 800;" class="severity-warning">{{ total_warning }}</div>
+    <div class="muted">Avertissements</div>
+  </div>
+  <div class="card" style="text-align: center; border-left: 4px solid var(--ok);">
+    <div style="font-size: 32px; font-weight: 800;" class="severity-ok">{{ total_ok }}</div>
+    <div class="muted">OK</div>
+  </div>
+</div>
+
+<!-- Core Web Vitals -->
+{% if results.get('performance', {}).get('metrics') %}
+<div class="card">
+  <h3 class="card-title">Core Web Vitals</h3>
+  <div class="grid grid-3">
+    {% for label, m in results.performance.metrics.items() %}
+    <div style="padding: 16px; background: var(--bg-2); border-radius: 8px; border-left: 4px solid {% if m.severity == 'ok' %}var(--ok){% elif m.severity == 'warning' %}var(--warning){% elif m.severity == 'critical' %}var(--critical){% else %}var(--info){% endif %};">
+      <div class="muted small" style="text-transform: uppercase; letter-spacing: 0.05em;">{{ label }}</div>
+      <div style="font-size: 22px; font-weight: 700; margin-top: 4px;">{{ m.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Performance opportunities -->
+{% if results.get('performance', {}).get('opportunities') %}
+<div class="card">
+  <h3 class="card-title">Opportunités de performance</h3>
+  <div style="height: 280px;">
+    <canvas id="opportunitiesChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Detailed issues per section -->
+{% for section in ['performance', 'seo', 'accessibility', 'security', 'links'] %}
+  {% if section in results %}
+  {% set data = results[section] %}
+  <div class="card">
+    <div class="flex-between mb-16">
+      <h3 class="card-title" style="margin: 0;">
+        {% if section == 'performance' %}⚡ Performance
+        {% elif section == 'seo' %}🔍 SEO
+        {% elif section == 'accessibility' %}♿ Accessibilité
+        {% elif section == 'security' %}🛡 Sécurité
+        {% elif section == 'links' %}🔗 Liens & Assets
+        {% endif %}
+      </h3>
+      {% if data.score is defined and data.score is not none %}
+        <span class="score-pill {{ score_class(data.score) }}">{{ data.score }}/100</span>
+      {% endif %}
+    </div>
+    {% for issue in data.get('issues', []) %}
+    <div class="issue-row">
+      <div class="issue-icon {{ issue.severity }}">{{ sev_icon(issue.severity) }}</div>
+      <div style="flex: 1;">{{ issue.msg }}</div>
+    </div>
+    {% endfor %}
+
+    {% if section == 'links' and data.details %}
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <div class="grid grid-3">
+        <div>
+          <div class="muted small">Total</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ data.details.total_links }}</div>
+        </div>
+        <div>
+          <div class="muted small">Internes</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ data.details.internal }}</div>
+        </div>
+        <div>
+          <div class="muted small">Externes</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ data.details.external }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if section == 'security' and data.details and data.details.get('ssl_expires') %}
+    <div style="margin-top: 16px; padding: 12px; background: var(--bg-2); border-radius: 8px;" class="small">
+      <strong>TLS:</strong> {{ data.details.get('tls_version', 'N/A') }}
+      &nbsp;•&nbsp;
+      <strong>Expire:</strong> {{ data.details.ssl_expires }} ({{ data.details.get('ssl_days_left', '?') }} jours)
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endfor %}
+
+<!-- History chart -->
+{% if history and history|length > 1 %}
+<div class="card">
+  <h3 class="card-title">Évolution dans le temps</h3>
+  <div style="height: 320px;">
+    <canvas id="historyChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<script>
+// Overall gauge (doughnut)
+const overall = {{ overall if overall is not none else 'null' }};
+function gaugeColor(v) {
+  if (v === null) return '#475569';
+  if (v >= 90) return '#10b981';
+  if (v >= 50) return '#f59e0b';
+  return '#ef4444';
+}
+new Chart(document.getElementById('overallGauge'), {
+  type: 'doughnut',
+  data: {
+    datasets: [{
+      data: [overall || 0, 100 - (overall || 0)],
+      backgroundColor: [gaugeColor(overall), '#334155'],
+      borderWidth: 0,
+      cutout: '78%'
+    }]
+  },
+  options: {
+    responsive: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    animation: { animateRotate: true, duration: 1000 }
+  }
+});
+
+// Radar chart
+const radarScores = {
+  Performance: {{ results.get('performance', {}).get('score') if results.get('performance', {}).get('score') is not none else 0 }},
+  SEO: {{ results.get('seo', {}).get('score') if results.get('seo', {}).get('score') is not none else 0 }},
+  Accessibilité: {{ results.get('accessibility', {}).get('score') if results.get('accessibility', {}).get('score') is not none else 0 }},
+  Sécurité: {{ results.get('security', {}).get('score') if results.get('security', {}).get('score') is not none else 0 }}
+};
+new Chart(document.getElementById('radarChart'), {
+  type: 'radar',
+  data: {
+    labels: Object.keys(radarScores),
+    datasets: [{
+      label: 'Score',
+      data: Object.values(radarScores),
+      backgroundColor: 'rgba(59, 130, 246, 0.25)',
+      borderColor: '#3b82f6',
+      borderWidth: 2,
+      pointBackgroundColor: '#3b82f6',
+      pointRadius: 4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      r: {
+        beginAtZero: true, max: 100,
+        ticks: { color: '#94a3b8', backdropColor: 'transparent' },
+        grid: { color: '#334155' },
+        angleLines: { color: '#334155' },
+        pointLabels: { color: '#f1f5f9', font: { size: 13, weight: '600' } }
+      }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Opportunities bar chart
+{% set opps = results.get('performance', {}).get('opportunities', []) %}
+{% if opps %}
+const oppData = {{ (opps | sort(attribute='savings_ms', reverse=True))[:6] | tojson }};
+new Chart(document.getElementById('opportunitiesChart'), {
+  type: 'bar',
+  data: {
+    labels: oppData.map(o => o.title.length > 35 ? o.title.slice(0, 35) + '...' : o.title),
+    datasets: [{
+      label: 'Économies (ms)',
+      data: oppData.map(o => o.savings_ms),
+      backgroundColor: '#f59e0b',
+      borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      y: { ticks: { color: '#f1f5f9' }, grid: { display: false } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+{% endif %}
+
+// History chart
+{% if history and history|length > 1 %}
+const historyData = {{ history | tojson }};
+const labels = historyData.map(h => h.timestamp.slice(5, 16).replace('T', ' '));
+new Chart(document.getElementById('historyChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'Global', data: historyData.map(h => h.overall_score), borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', tension: 0.3 },
+      { label: 'Performance', data: historyData.map(h => h.performance_score), borderColor: '#3b82f6', tension: 0.3 },
+      { label: 'SEO', data: historyData.map(h => h.seo_score), borderColor: '#10b981', tension: 0.3 },
+      { label: 'A11y', data: historyData.map(h => h.accessibility_score), borderColor: '#f59e0b', tension: 0.3 },
+      { label: 'Sécurité', data: historyData.map(h => h.security_score), borderColor: '#ef4444', tension: 0.3 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      y: { min: 0, max: 100, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+    },
+    plugins: { legend: { labels: { color: '#f1f5f9' } } }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

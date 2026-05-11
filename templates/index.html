@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Analyser un site — Web Analyzer{% endblock %}
+{% block content %}
+
+<div class="card" style="background: linear-gradient(135deg, #1e293b, #2d1b69); border: 1px solid #4c1d95;">
+  <h1>Analyseur de sites web</h1>
+  <p class="muted">Performance, SEO, Accessibilité, Sécurité, Liens — en quelques secondes.</p>
+
+  <form id="analyze-form" style="margin-top: 24px;">
+    <label for="url" style="display: block; font-weight: 600; margin-bottom: 8px;">URL du site</label>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <input type="text" name="url" id="url" placeholder="https://exemple.com" required style="flex: 1; min-width: 250px;">
+      <button type="submit" class="btn btn-primary" id="submit-btn">
+        Analyser
+      </button>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <label style="display: block; font-weight: 600; margin-bottom: 8px;">Modules à analyser</label>
+      <div class="checkbox-grid">
+        <label class="checkbox-label"><input type="checkbox" name="sections" value="performance" checked> Performance</label>
+        <label class="checkbox-label"><input type="checkbox" name="sections" value="seo" checked> SEO</label>
+        <label class="checkbox-label"><input type="checkbox" name="sections" value="accessibility" checked> Accessibilité</label>
+        <label class="checkbox-label"><input type="checkbox" name="sections" value="security" checked> Sécurité</label>
+        <label class="checkbox-label"><input type="checkbox" name="sections" value="links" checked> Liens</label>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div id="progress-card" class="card" style="display: none;">
+  <h3 id="progress-title">Analyse en cours...</h3>
+  <p class="muted" id="progress-current">Initialisation</p>
+  <div class="progress-bar mt-16">
+    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+  </div>
+  <p class="small muted mt-16" id="progress-percent">0%</p>
+</div>
+
+{% if recent %}
+<div class="card">
+  <div class="flex-between mb-16">
+    <h2 style="margin: 0;">Analyses récentes</h2>
+    <a href="{{ url_for('history') }}" class="btn btn-secondary btn-sm">Voir tout</a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Site</th>
+        <th>Date</th>
+        <th>Score global</th>
+        <th>Critiques</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td>
+          <strong>{{ r.url.replace('https://', '').replace('http://', '')[:60] }}</strong>
+        </td>
+        <td class="muted small">{{ r.timestamp[:16].replace('T', ' ') }}</td>
+        <td>
+          {% set s = r.overall_score %}
+          <span class="score-pill {% if s is none %}score-na{% elif s >= 90 %}score-good{% elif s >= 50 %}score-mid{% else %}score-bad{% endif %}">
+            {{ s if s is not none else 'N/A' }}
+          </span>
+        </td>
+        <td>
+          {% if r.critical_count > 0 %}
+            <span class="severity-critical">{{ r.critical_count }}</span>
+          {% else %}
+            <span class="muted">0</span>
+          {% endif %}
+        </td>
+        <td><a href="{{ url_for('view_results', analysis_id=r.id) }}" class="btn btn-secondary btn-sm">Voir →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+const form = document.getElementById('analyze-form');
+const submitBtn = document.getElementById('submit-btn');
+const progressCard = document.getElementById('progress-card');
+const progressFill = document.getElementById('progress-fill');
+const progressCurrent = document.getElementById('progress-current');
+const progressPercent = document.getElementById('progress-percent');
+
+const SECTION_LABELS = {
+  performance: 'Mesure des performances...',
+  seo: 'Analyse SEO...',
+  accessibility: 'Vérification accessibilité...',
+  security: 'Analyse de sécurité...',
+  links: 'Vérification des liens...'
+};
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Analyse...';
+  progressCard.style.display = 'block';
+  progressFill.style.width = '0%';
+  progressPercent.textContent = '0%';
+
+  const fd = new FormData(form);
+  const resp = await fetch('/analyze', { method: 'POST', body: fd });
+  if (!resp.ok) {
+    progressCurrent.textContent = 'Erreur';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Analyser';
+    return;
+  }
+  const { job_id } = await resp.json();
+  pollJob(job_id);
+});
+
+async function pollJob(jobId) {
+  const poll = async () => {
+    const r = await fetch(`/job/${jobId}`);
+    const j = await r.json();
+    const pct = j.progress || 0;
+    progressFill.style.width = pct + '%';
+    progressPercent.textContent = pct + '%';
+    progressCurrent.textContent = SECTION_LABELS[j.current] || j.current || '...';
+
+    if (j.status === 'done') {
+      progressFill.style.width = '100%';
+      progressPercent.textContent = '100%';
+      progressCurrent.textContent = 'Terminé — redirection...';
+      setTimeout(() => {
+        window.location = `/results/${j.analysis_id}`;
+      }, 500);
+      return;
+    }
+    setTimeout(poll, 800);
+  };
+  poll();
+}
+</script>
+{% endblock %}

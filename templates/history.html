@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Historique — Web Analyzer{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="flex-between mb-16" style="flex-wrap: wrap; gap: 12px;">
+    <h1 style="margin: 0;">Historique des analyses</h1>
+    <form method="GET" style="display: flex; gap: 8px; min-width: 280px;">
+      <input type="search" name="q" placeholder="Filtrer par URL..." value="{{ q }}">
+      <button class="btn btn-primary btn-sm">Filtrer</button>
+    </form>
+  </div>
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="select-all"></th>
+        <th>URL</th>
+        <th>Date</th>
+        <th>Global</th>
+        <th>Perf</th>
+        <th>SEO</th>
+        <th>A11y</th>
+        <th>Sec</th>
+        <th>Critiques</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><input type="checkbox" class="row-check" value="{{ r.id }}"></td>
+        <td><strong>{{ r.url.replace('https://', '').replace('http://', '')[:50] }}</strong></td>
+        <td class="muted small">{{ r.timestamp[:16].replace('T', ' ') }}</td>
+        {% for s in [r.overall_score, r.performance_score, r.seo_score, r.accessibility_score, r.security_score] %}
+        <td>
+          <span class="score-pill {% if s is none %}score-na{% elif s >= 90 %}score-good{% elif s >= 50 %}score-mid{% else %}score-bad{% endif %}">
+            {{ s if s is not none else '—' }}
+          </span>
+        </td>
+        {% endfor %}
+        <td>
+          {% if r.critical_count > 0 %}
+            <span class="severity-critical"><strong>{{ r.critical_count }}</strong></span>
+          {% else %}
+            <span class="muted">0</span>
+          {% endif %}
+        </td>
+        <td style="display: flex; gap: 6px;">
+          <a href="{{ url_for('view_results', analysis_id=r.id) }}" class="btn btn-secondary btn-sm">Voir</a>
+          <form method="POST" action="{{ url_for('history_delete', analysis_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Supprimer cette analyse ?');">
+            <button class="btn btn-danger btn-sm">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="margin-top: 20px; display: flex; gap: 8px; align-items: center;">
+    <button class="btn btn-primary" id="compare-btn" disabled>Comparer la sélection</button>
+    <span class="muted small">Cochez au moins 2 analyses pour comparer.</span>
+  </div>
+  {% else %}
+  <p class="muted">Aucune analyse pour le moment. <a href="{{ url_for('index') }}">Lancer une analyse</a>.</p>
+  {% endif %}
+</div>
+
+<script>
+const selectAll = document.getElementById('select-all');
+const checks = document.querySelectorAll('.row-check');
+const compareBtn = document.getElementById('compare-btn');
+
+function refresh() {
+  const selected = Array.from(checks).filter(c => c.checked).map(c => c.value);
+  compareBtn.disabled = selected.length < 2;
+}
+if (selectAll) {
+  selectAll.addEventListener('change', e => {
+    checks.forEach(c => c.checked = e.target.checked);
+    refresh();
+  });
+}
+checks.forEach(c => c.addEventListener('change', refresh));
+if (compareBtn) {
+  compareBtn.addEventListener('click', () => {
+    const selected = Array.from(checks).filter(c => c.checked).map(c => c.value);
+    if (selected.length >= 2) {
+      window.location = '/compare?ids=' + selected.join(',');
+    }
+  });
+}
+</script>
+{% endblock %}

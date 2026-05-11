@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Comparer — Web Analyzer{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h1>Comparer les analyses</h1>
+  <p class="muted">Sélectionnez plusieurs analyses dans l'historique pour les comparer.</p>
+
+  <form method="GET" style="margin-top: 16px;">
+    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Choisir les analyses (Ctrl/Cmd + clic pour multi-sélection)</label>
+    <select name="ids" multiple size="8" style="width: 100%;" id="select-ids">
+      {% for r in all_rows %}
+      <option value="{{ r.id }}" {% if r.id in selected_ids %}selected{% endif %}>
+        {{ r.url.replace('https://', '').replace('http://', '')[:50] }} —
+        {{ r.timestamp[:16].replace('T', ' ') }}
+        (score: {{ r.overall_score if r.overall_score is not none else '?' }})
+      </option>
+      {% endfor %}
+    </select>
+    <button type="button" class="btn btn-primary mt-16" onclick="submitCompare()">Comparer</button>
+  </form>
+</div>
+
+{% if records|length >= 2 %}
+<div class="card">
+  <h2>Vue d'ensemble</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Site</th>
+        <th>Date</th>
+        <th>Global</th>
+        <th>Performance</th>
+        <th>SEO</th>
+        <th>A11y</th>
+        <th>Sécurité</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td><strong>{{ r.url.replace('https://', '').replace('http://', '')[:40] }}</strong></td>
+        <td class="muted small">{{ r.timestamp[:16].replace('T', ' ') }}</td>
+        {% for s in [r.overall_score, r.performance_score, r.seo_score, r.accessibility_score, r.security_score] %}
+        <td>
+          <span class="score-pill {% if s is none %}score-na{% elif s >= 90 %}score-good{% elif s >= 50 %}score-mid{% else %}score-bad{% endif %}">
+            {{ s if s is not none else '—' }}
+          </span>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3 class="card-title">Comparaison radar</h3>
+    <div style="height: 360px;">
+      <canvas id="compareRadar"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="card-title">Scores par module</h3>
+    <div style="height: 360px;">
+      <canvas id="compareBars"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const records = {{ records | tojson }};
+const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+function urlShort(u) { return u.replace('https://', '').replace('http://', '').slice(0, 30); }
+
+// Radar comparison
+new Chart(document.getElementById('compareRadar'), {
+  type: 'radar',
+  data: {
+    labels: ['Performance', 'SEO', 'Accessibilité', 'Sécurité'],
+    datasets: records.map((r, i) => ({
+      label: urlShort(r.url),
+      data: [r.performance_score || 0, r.seo_score || 0, r.accessibility_score || 0, r.security_score || 0],
+      backgroundColor: PALETTE[i % PALETTE.length] + '33',
+      borderColor: PALETTE[i % PALETTE.length],
+      borderWidth: 2,
+      pointBackgroundColor: PALETTE[i % PALETTE.length]
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      r: {
+        beginAtZero: true, max: 100,
+        ticks: { color: '#94a3b8', backdropColor: 'transparent' },
+        grid: { color: '#334155' },
+        angleLines: { color: '#334155' },
+        pointLabels: { color: '#f1f5f9', font: { size: 12, weight: '600' } }
+      }
+    },
+    plugins: { legend: { labels: { color: '#f1f5f9' } } }
+  }
+});
+
+// Bar comparison
+new Chart(document.getElementById('compareBars'), {
+  type: 'bar',
+  data: {
+    labels: ['Global', 'Performance', 'SEO', 'A11y', 'Sécurité'],
+    datasets: records.map((r, i) => ({
+      label: urlShort(r.url),
+      data: [r.overall_score || 0, r.performance_score || 0, r.seo_score || 0, r.accessibility_score || 0, r.security_score || 0],
+      backgroundColor: PALETTE[i % PALETTE.length],
+      borderRadius: 6
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color: '#f1f5f9' }, grid: { display: false } },
+      y: { min: 0, max: 100, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+    },
+    plugins: { legend: { labels: { color: '#f1f5f9' } } }
+  }
+});
+</script>
+{% endif %}
+
+<script>
+function submitCompare() {
+  const select = document.getElementById('select-ids');
+  const ids = Array.from(select.selectedOptions).map(o => o.value);
+  if (ids.length === 0) return;
+  window.location = '/compare?ids=' + ids.join(',');
+}
+</script>
+{% endblock %}
