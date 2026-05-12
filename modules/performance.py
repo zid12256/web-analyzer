@@ -116,4 +116,13 @@ def analyze_performance(url: str) -> dict:
         else:
             results["issues"].append({"severity": "ok", "msg": f"Good performance score: {score}/100"})
 
+    # Fallback score from own checks when PageSpeed is unavailable
+    if results.get("score") is None:
+        critical = sum(1 for i in results["issues"] if i["severity"] == "critical")
+        warning = sum(1 for i in results["issues"] if i["severity"] == "warning")
+        ok = sum(1 for i in results["issues"] if i["severity"] == "ok")
+        total = critical + warning + ok
+        if total:
+            results["score"] = round((ok / total) * 100)
+
     return results
